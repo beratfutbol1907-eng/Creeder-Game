@@ -3,30 +3,31 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CREEDER MOBILE PRO</title>
+    <title>CREEDER ARENA - FINAL</title>
     <script src="https://cdn.pubnub.com/sdk/javascript/pubnub.4.29.9.min.js"></script>
     <style>
         body { margin: 0; background: #222; overflow: hidden; font-family: sans-serif; touch-action: none; }
         canvas { display: block; background: #333; }
-        #menu { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); padding: 20px; color: white; text-align: center; border: 2px solid #4CAF50; z-index: 1000; border-radius: 10px; }
-        input { width: 80%; padding: 10px; margin: 10px 0; }
-        button { width: 90%; padding: 12px; background: #4CAF50; color: white; border: none; font-weight: bold; }
+        #menu { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
+                background: rgba(0,0,0,0.9); padding: 30px; border-radius: 15px; 
+                color: white; text-align: center; border: 2px solid #4CAF50; z-index: 1000; width: 260px; }
+        input { width: 85%; padding: 12px; margin: 10px 0; border-radius: 8px; border: none; }
+        button { width: 95%; padding: 15px; background: #4CAF50; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
         
-        /* JOYSTICK VE ATEŞ BUTONU STİLLERİ */
-        #joystick-zone { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%; z-index: 100; display: none; border: 2px solid rgba(255,255,255,0.3); }
-        #joystick-stick { position: absolute; top: 35px; left: 35px; width: 50px; height: 50px; background: #4CAF50; border-radius: 50%; opacity: 0.8; }
-        #fire-btn { position: absolute; bottom: 50px; right: 40px; width: 80px; height: 80px; background: rgba(255,0,0,0.6); border: 3px solid white; border-radius: 50%; z-index: 100; display: none; color: white; font-weight: bold; text-align: center; line-height: 80px; user-select: none; }
+        /* MOBİL KONTROLLER */
+        #j-zone { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%; border: 2px solid #fff; display: none; z-index: 500; }
+        #j-stick { position: absolute; top: 35px; left: 35px; width: 50px; height: 50px; background: #4CAF50; border-radius: 50%; }
+        #f-btn { position: absolute; bottom: 50px; right: 40px; width: 90px; height: 90px; background: rgba(255,0,0,0.6); border: 3px solid white; border-radius: 50%; display: none; z-index: 500; color: white; text-align: center; line-height: 90px; font-weight: bold; user-select: none; }
     </style>
 </head>
 <body>
-    <div id="joystick-zone"><div id="joystick-stick"></div></div>
-    <div id="fire-btn">ATEŞ</div>
-    
+    <div id="j-zone"><div id="j-stick"></div></div>
+    <div id="f-btn">ATEŞ</div>
     <div id="menu">
-        <h2>CREEDER ARENA</h2>
+        <h2>CREEDER</h2>
         <input type="text" id="n" placeholder="İsim">
         <input type="text" id="o" placeholder="Oda Kodu">
-        <button onclick="st()">SAVAŞA GİR</button>
+        <button onclick="st()">BAŞLAT</button>
     </div>
     <canvas id="cv"></canvas>
 
@@ -39,82 +40,83 @@ let rk = {};
 const ts = {};
 
 // Joystick Değişkenleri
-let jActive = false, jX = 0, jY = 0;
-const jZone = document.getElementById('joystick-zone');
-const jStick = document.getElementById('joystick-stick');
+let jAk = false, jX = 0, jY = 0;
+const jZ = document.getElementById('j-zone'), jS = document.getElementById('j-stick');
 
 function res() { cv.width = window.innerWidth; cv.height = window.innerHeight; }
 window.onresize = res; res();
 
 function st() {
-    b.n = document.getElementById('n').value || "Pilot";
+    b.n = document.getElementById('n').value || "P";
     od = document.getElementById('o').value || "1907";
     document.getElementById('menu').style.display = 'none';
-    if('ontouchstart' in window) { // Mobil kontrolünü göster
-        jZone.style.display = 'block';
-        document.getElementById('fire-btn').style.display = 'block';
+    
+    // Mobil kontrolü (Ekranda dokunma varsa göster)
+    if('ontouchstart' in window || navigator.maxTouchPoints > 0) { 
+        jZ.style.display = 'block'; 
+        document.getElementById('f-btn').style.display = 'block'; 
     }
+    
     ak = true;
-    pn = new PubNub({ publishKey: 'pub-c-8f430635-f09b-4394-874b-22003f905007', subscribeKey: 'sub-c-0720616b-952a-43cf-87eb-07f9208007a1', uuid: b.id });
+    pn = new PubNub({ 
+        publishKey: 'pub-c-8f430635-f09b-4394-874b-22003f905007', 
+        subscribeKey: 'sub-c-0720616b-952a-43cf-87eb-07f9208007a1', 
+        uuid: b.id 
+    });
     pn.subscribe({ channels: [od] });
     pn.addListener({ message: (m) => {
-        if(m.tip === 'm' && m.id !== b.id) rk[m.id] = {...m, s: Date.now()};
-        if(m.tip === 'a' && m.id !== b.id) { if(rk[m.id]) rk[m.id].m.push(m.mer); }
-        if(m.tip === 'h' && m.hedef === b.id) { b.x = Math.random()*cv.width; b.y = Math.random()*cv.height; }
+        if(m.message.t === 'p' && m.message.id !== b.id) rk[m.message.id] = {...m.message, s: Date.now()};
+        if(m.message.t === 'a' && m.message.id !== b.id) { if(rk[m.message.id]) rk[m.message.id].m.push(m.message.mer); }
+        if(m.message.t === 'h' && m.message.hedef === b.id) { b.x = Math.random()*cv.width; b.y = Math.random()*cv.height; }
     }});
-    setInterval(() => { if(ak) pn.publish({ channel: od, message: { tip: 'm', ...b, m: [] } }); }, 50);
+    
+    setInterval(() => { if(ak) pn.publish({ channel: od, message: { t: 'p', ...b, m: [] } }); }, 50);
     loop();
 }
 
-// JOYSTICK MANTIĞI
-jZone.addEventListener('touchstart', (e) => { jActive = true; });
+// Joystick Hareket Kodları
+jZ.addEventListener('touchstart', (e) => { jAk = true; e.preventDefault(); });
 window.addEventListener('touchmove', (e) => {
-    if (!jActive) return;
-    let touch = e.touches[0];
-    let rect = jZone.getBoundingClientRect();
-    let centerX = rect.left + rect.width / 2;
-    let centerY = rect.top + rect.height / 2;
-    let dx = touch.clientX - centerX;
-    let dy = touch.clientY - centerY;
-    let dist = Math.min(60, Math.hypot(dx, dy));
-    let angle = Math.atan2(dy, dx);
-    jX = Math.cos(angle) * (dist / 60);
-    jY = Math.sin(angle) * (dist / 60);
-    jStick.style.transform = `translate(${jX * 40}px, ${jY * 40}px)`;
+    if(!jAk) return;
+    let t = e.touches[0], r = jZ.getBoundingClientRect();
+    let dx = t.clientX - (r.left + 60), dy = t.clientY - (r.top + 60);
+    let d = Math.min(60, Math.hypot(dx, dy)), a = Math.atan2(dy, dx);
+    jX = Math.cos(a) * (d/60); jY = Math.sin(a) * (d/60);
+    jS.style.transform = `translate(${jX*40}px, ${jY*40}px)`;
 });
-window.addEventListener('touchend', () => { jActive = false; jX = 0; jY = 0; jStick.style.transform = `translate(0,0)`; });
+window.addEventListener('touchend', () => { jAk = false; jX = 0; jY = 0; jS.style.transform = 'translate(0,0)'; });
 
-// ATEŞ BUTONU
-document.getElementById('fire-btn').addEventListener('touchstart', (e) => {
-    e.preventDefault();
-    fire(b.x + 50, b.y); // Örnek olarak sağa ateş
-});
+// Ateş Butonu Kodları
+document.getElementById('f-btn').addEventListener('touchstart', (e) => { e.preventDefault(); at(); });
+window.onpointerdown = (e) => { if(ak && !('ontouchstart' in window) && e.target.id === 'cv') at(); };
 
-function fire(tx, ty) {
-    let aci = Math.atan2(ty - b.y, tx - b.x);
-    let mer = { x: b.x, y: b.y, a: aci, s: 10, r: 10 };
+function at() {
+    let mer = { x: b.x, y: b.y, a: Math.random()*Math.PI*2, s: 12, r: 12 };
     b.m.push(mer);
-    pn.publish({ channel: od, message: { tip: 'a', id: b.id, mer: mer } });
+    pn.publish({ channel: od, message: { t: 'a', id: b.id, mer: mer } });
 }
 
 window.onkeydown = (e) => ts[e.key.toLowerCase()] = true;
 window.onkeyup = (e) => ts[e.key.toLowerCase()] = false;
 
-function ciz(t) {
-    cx.fillStyle = t.r;
-    cx.fillRect(t.x-20, t.y-20, 40, 40);
-    cx.fillStyle = "white";
-    cx.fillText(t.n, t.x-10, t.y-25);
+function draw(t) {
+    cx.fillStyle = t.r; 
+    cx.fillRect(t.x-20, t.y-20, 40, 40); // TANK
+    cx.fillStyle = "white"; 
+    cx.font = "bold 14px Arial";
+    cx.fillText(t.n, t.x-15, t.y-25); // İSİM
     
     for(let i=t.m.length-1; i>=0; i--) {
-        let m = t.m[i];
-        m.x += Math.cos(m.a)*m.s; m.y += Math.sin(m.a)*m.s;
-        cx.fillStyle = "yellow";
-        cx.beginPath(); cx.arc(m.x, m.y, m.r, 0, Math.PI*2); cx.fill();
+        let m = t.m[i]; 
+        m.x += Math.cos(m.a)*m.s; 
+        m.y += Math.sin(m.a)*m.s;
+        cx.fillStyle = "yellow"; 
+        cx.beginPath(); cx.arc(m.x, m.y, m.r, 0, Math.PI*2); cx.fill(); // MERMİ
+        
         if(t.id === b.id) {
             Object.values(rk).forEach(r => {
                 if(Math.hypot(r.x-m.x, r.y-m.y) < 30) {
-                    pn.publish({ channel: od, message: { tip: 'h', hedef: r.id } });
+                    pn.publish({ channel: od, message: { t: 'h', hedef: r.id } });
                     t.m.splice(i, 1);
                 }
             });
@@ -127,16 +129,15 @@ function loop() {
     if(!ak) return;
     cx.clearRect(0,0,cv.width,cv.height);
     
-    // PC Hareketi
-    if(ts['w']) b.y-=4; if(ts['s']) b.y+=4;
-    if(ts['a']) b.x-=4; if(ts['d']) b.x+=4;
+    // PC Hareket
+    if(ts['w']) b.y-=5; if(ts['s']) b.y+=5; 
+    if(ts['a']) b.x-=5; if(ts['d']) b.x+=5;
     
-    // Mobil Hareketi (Joystick)
-    b.x += jX * 5;
-    b.y += jY * 5;
+    // Mobil Hareket
+    b.x += jX*5; b.y += jY*5;
     
-    ciz(b);
-    Object.values(rk).forEach(r => { if(Date.now()-r.s < 3000) ciz(r); });
+    draw(b);
+    Object.values(rk).forEach(r => { if(Date.now()-r.s < 3000) draw(r); });
     requestAnimationFrame(loop);
 }
 </script>
