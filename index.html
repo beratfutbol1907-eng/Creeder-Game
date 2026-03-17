@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CREEDER ARENA - SON SURUM</title>
+    <title>CREEDER ARENA</title>
     <script src="https://cdn.pubnub.com/sdk/javascript/pubnub.4.29.9.min.js"></script>
     <style>
         body { margin: 0; background: #222; overflow: hidden; font-family: sans-serif; touch-action: none; }
@@ -13,8 +13,6 @@
                 color: white; text-align: center; border: 2px solid #4CAF50; z-index: 1000; width: 260px; }
         input { width: 85%; padding: 12px; margin: 10px 0; border-radius: 8px; border: none; }
         button { width: 95%; padding: 15px; background: #4CAF50; color: white; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; }
-        
-        /* MOBIL KONTROLLER */
         #j-zone { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%; border: 2px solid #fff; display: none; z-index: 500; }
         #j-stick { position: absolute; top: 35px; left: 35px; width: 50px; height: 50px; background: #4CAF50; border-radius: 50%; }
         #f-btn { position: absolute; bottom: 50px; right: 40px; width: 90px; height: 90px; background: rgba(255,0,0,0.6); border: 3px solid white; border-radius: 50%; display: none; z-index: 500; color: white; text-align: center; line-height: 90px; font-weight: bold; user-select: none; }
@@ -30,103 +28,66 @@
         <button onclick="st()">BAŞLAT</button>
     </div>
     <canvas id="cv"></canvas>
-
 <script>
-const cv = document.getElementById('cv');
-const cx = cv.getContext('2d');
+const cv = document.getElementById('cv'); const cx = cv.getContext('2d');
 let pn, od, ak = false;
 let b = { x: 100, y: 100, id: 'p'+Math.random(), r: 'orange', n: '', m: [] };
-let rk = {};
-const ts = {};
-
+let rk = {}; const ts = {};
 let jAk = false, jX = 0, jY = 0;
 const jZ = document.getElementById('j-zone'), jS = document.getElementById('j-stick');
-
 function res() { cv.width = window.innerWidth; cv.height = window.innerHeight; }
 window.onresize = res; res();
-
 function st() {
-    b.n = document.getElementById('n').value || "P";
-    od = document.getElementById('o').value || "1907";
+    b.n = document.getElementById('n').value || "P"; od = document.getElementById('o').value || "1907";
     document.getElementById('menu').style.display = 'none';
-    
-    if('ontouchstart' in window || navigator.maxTouchPoints > 0) { 
-        jZ.style.display = 'block'; 
-        document.getElementById('f-btn').style.display = 'block'; 
-    }
-    
+    if('ontouchstart' in window || navigator.maxTouchPoints > 0) { jZ.style.display = 'block'; document.getElementById('f-btn').style.display = 'block'; }
     ak = true;
-    pn = new PubNub({ 
-        publishKey: 'pub-c-8f430635-f09b-4394-874b-22003f905007', 
-        subscribeKey: 'sub-c-0720616b-952a-43cf-87eb-07f9208007a1', 
-        uuid: b.id 
-    });
+    pn = new PubNub({ publishKey: 'pub-c-8f430635-f09b-4394-874b-22003f905007', subscribeKey: 'sub-c-0720616b-952a-43cf-87eb-07f9208007a1', uuid: b.id });
     pn.subscribe({ channels: [od] });
     pn.addListener({ message: (m) => {
         if(m.message.t === 'p' && m.message.id !== b.id) rk[m.message.id] = {...m.message, s: Date.now()};
         if(m.message.t === 'a' && m.message.id !== b.id) { if(rk[m.message.id]) rk[m.message.id].m.push(m.message.mer); }
         if(m.message.t === 'h' && m.message.hedef === b.id) { b.x = Math.random()*cv.width; b.y = Math.random()*cv.height; }
     }});
-    
     setInterval(() => { if(ak) pn.publish({ channel: od, message: { t: 'p', ...b, m: [] } }); }, 50);
     loop();
 }
-
 jZ.addEventListener('touchstart', (e) => { jAk = true; e.preventDefault(); });
 window.addEventListener('touchmove', (e) => {
-    if(!jAk) return;
-    let t = e.touches[0], r = jZ.getBoundingClientRect();
+    if(!jAk) return; let t = e.touches[0], r = jZ.getBoundingClientRect();
     let dx = t.clientX - (r.left + 60), dy = t.clientY - (r.top + 60);
     let d = Math.min(60, Math.hypot(dx, dy)), a = Math.atan2(dy, dx);
     jX = Math.cos(a) * (d/60); jY = Math.sin(a) * (d/60);
     jS.style.transform = `translate(${jX*40}px, ${jY*40}px)`;
 });
 window.addEventListener('touchend', () => { jAk = false; jX = 0; jY = 0; jS.style.transform = 'translate(0,0)'; });
-
 document.getElementById('f-btn').addEventListener('touchstart', (e) => { e.preventDefault(); at(); });
 window.onpointerdown = (e) => { if(ak && !('ontouchstart' in window) && e.target.id === 'cv') at(); };
-
 function at() {
     let mer = { x: b.x, y: b.y, a: Math.random()*Math.PI*2, s: 12, r: 12 };
-    b.m.push(mer);
-    pn.publish({ channel: od, message: { t: 'a', id: b.id, mer: mer } });
+    b.m.push(mer); pn.publish({ channel: od, message: { t: 'a', id: b.id, mer: mer } });
 }
-
 window.onkeydown = (e) => ts[e.key.toLowerCase()] = true;
 window.onkeyup = (e) => ts[e.key.toLowerCase()] = false;
-
 function draw(t) {
-    cx.fillStyle = t.r; 
-    cx.fillRect(t.x-20, t.y-20, 40, 40); 
-    cx.fillStyle = "white"; 
-    cx.font = "bold 14px Arial";
-    cx.fillText(t.n, t.x-15, t.y-25); 
-    
+    cx.fillStyle = t.r; cx.fillRect(t.x-20, t.y-20, 40, 40);
+    cx.fillStyle = "white"; cx.font = "bold 14px Arial"; cx.fillText(t.n, t.x-15, t.y-25);
     for(let i=t.m.length-1; i>=0; i--) {
-        let m = t.m[i]; 
-        m.x += Math.cos(m.a)*m.s; m.y += Math.sin(m.a)*m.s;
-        cx.fillStyle = "yellow"; 
-        cx.beginPath(); cx.arc(m.x, m.y, m.r, 0, Math.PI*2); cx.fill();
-        
+        let m = t.m[i]; m.x += Math.cos(m.a)*m.s; m.y += Math.sin(m.a)*m.s;
+        cx.fillStyle = "yellow"; cx.beginPath(); cx.arc(m.x, m.y, m.r, 0, Math.PI*2); cx.fill();
         if(t.id === b.id) {
             Object.values(rk).forEach(r => {
-                if(Math.hypot(r.x-m.x, r.y-m.y) < 30) {
-                    pn.publish({ channel: od, message: { t: 'h', hedef: r.id } });
-                    t.m.splice(i, 1);
-                }
+                if(Math.hypot(r.x-m.x, r.y-m.y) < 30) { pn.publish({ channel: od, message: { t: 'h', hedef: r.id } }); t.m.splice(i, 1); }
             });
         }
         if(m.x<0 || m.x>cv.width || m.y<0 || m.y>cv.height) t.m.splice(i, 1);
     }
 }
-
 function loop() {
-    if(!ak) return;
-    cx.clearRect(0,0,cv.width,cv.height);
+    if(!ak) return; cx.clearRect(0,0,cv.width,cv.height);
     if(ts['w']) b.y-=5; if(ts['s']) b.y+=5; if(ts['a']) b.x-=5; if(ts['d']) b.x+=5;
     b.x += jX*5; b.y += jY*5;
-    draw(b);
-    Object.values(rk).forEach(r => { if(Date.now()-r.s < 3000) draw(r); });
+    draw(b); Object.values(rk).forEach(r => { if(Date.now()-r.s < 3000) draw(r); });
     requestAnimationFrame(loop);
 }
 </script>
