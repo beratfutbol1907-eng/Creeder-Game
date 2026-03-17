@@ -1,140 +1,143 @@
 <!DOCTYPE html>
-<html lang="tr">
+<html>
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CREEDER ARENA - FIX</title>
+    <title>CREEDER MOBILE PRO</title>
     <script src="https://cdn.pubnub.com/sdk/javascript/pubnub.4.29.9.min.js"></script>
     <style>
-        body { margin: 0; overflow: hidden; background: #222; font-family: sans-serif; touch-action: none; }
+        body { margin: 0; background: #222; overflow: hidden; font-family: sans-serif; touch-action: none; }
         canvas { display: block; background: #333; }
-        #ui { position: absolute; top: 10px; left: 10px; color: white; pointer-events: none; z-index: 10; font-weight: bold; }
-        #exitBtn { 
-            position: absolute; top: 10px; right: 10px; 
-            padding: 10px 20px; background: #f44336; color: white; 
-            border-radius: 8px; z-index: 100; cursor: pointer; border: 2px solid white; display: none;
-        }
-        #menu { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-                background: rgba(0,0,0,0.9); padding: 30px; border-radius: 15px; 
-                color: white; text-align: center; border: 2px solid #4CAF50; z-index: 200; width: 280px; }
-        input { padding: 12px; margin: 10px 0; border-radius: 8px; border: none; width: 90%; font-size: 16px; }
-        button { padding: 15px; background: #4CAF50; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 18px; font-weight: bold; width: 100%; }
+        #menu { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); padding: 20px; color: white; text-align: center; border: 2px solid #4CAF50; z-index: 1000; border-radius: 10px; }
+        input { width: 80%; padding: 10px; margin: 10px 0; }
+        button { width: 90%; padding: 12px; background: #4CAF50; color: white; border: none; font-weight: bold; }
+        
+        /* JOYSTICK VE ATEŞ BUTONU STİLLERİ */
+        #joystick-zone { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(255,255,255,0.1); border-radius: 50%; z-index: 100; display: none; border: 2px solid rgba(255,255,255,0.3); }
+        #joystick-stick { position: absolute; top: 35px; left: 35px; width: 50px; height: 50px; background: #4CAF50; border-radius: 50%; opacity: 0.8; }
+        #fire-btn { position: absolute; bottom: 50px; right: 40px; width: 80px; height: 80px; background: rgba(255,0,0,0.6); border: 3px solid white; border-radius: 50%; z-index: 100; display: none; color: white; font-weight: bold; text-align: center; line-height: 80px; user-select: none; }
     </style>
 </head>
 <body>
-
-<div id="ui"><div id="stats">Can: 100 | Oda: -</div></div>
-<div id="exitBtn" onclick="location.reload()">MENÜ / ÇIKIŞ</div>
-
-<div id="menu">
-    <h1>CREEDER</h1>
-    <input type="text" id="username" placeholder="Pilot İsmi" maxlength="10">
-    <input type="text" id="roomCode" placeholder="Oda Kodu">
-    <button onclick="joinGame()">BAŞLAT</button>
-</div>
-
-<canvas id="gameCanvas"></canvas>
+    <div id="joystick-zone"><div id="joystick-stick"></div></div>
+    <div id="fire-btn">ATEŞ</div>
+    
+    <div id="menu">
+        <h2>CREEDER ARENA</h2>
+        <input type="text" id="n" placeholder="İsim">
+        <input type="text" id="o" placeholder="Oda Kodu">
+        <button onclick="st()">SAVAŞA GİR</button>
+    </div>
+    <canvas id="cv"></canvas>
 
 <script>
-const canvas = document.getElementById('gameCanvas');
-const ctx = canvas.getContext('2d');
-let pubnub, room, gameActive = false;
-let myTank = { x: 100, y: 100, id: '', name: '', color: '', health: 100, bullets: [] };
-let tanks = {};
-const keys = {};
+const cv = document.getElementById('cv');
+const cx = cv.getContext('2d');
+let pn, od, ak = false;
+let b = { x: 100, y: 100, id: 'p'+Math.random(), r: 'orange', n: '', m: [] };
+let rk = {};
+const ts = {};
 
-function resize() { canvas.width = window.innerWidth; canvas.height = window.innerHeight; }
-window.onresize = resize; resize();
+// Joystick Değişkenleri
+let jActive = false, jX = 0, jY = 0;
+const jZone = document.getElementById('joystick-zone');
+const jStick = document.getElementById('joystick-stick');
 
-function joinGame() {
-    myTank.name = document.getElementById('username').value || "Pilot";
-    room = document.getElementById('roomCode').value || "1907";
-    myTank.id = 'p-' + Math.random().toString(36).substr(2, 9);
-    myTank.color = `hsl(${Math.random() * 360}, 70%, 50%)`;
-    
+function res() { cv.width = window.innerWidth; cv.height = window.innerHeight; }
+window.onresize = res; res();
+
+function st() {
+    b.n = document.getElementById('n').value || "Pilot";
+    od = document.getElementById('o').value || "1907";
     document.getElementById('menu').style.display = 'none';
-    document.getElementById('exitBtn').style.display = 'block';
-    gameActive = true;
-
-    pubnub = new PubNub({
-        publishKey: 'pub-c-8f430635-f09b-4394-874b-22003f905007',
-        subscribeKey: 'sub-c-0720616b-952a-43cf-87eb-07f9208007a1',
-        uuid: myTank.id
-    });
-
-    pubnub.subscribe({ channels: [room] });
-    pubnub.addListener({
-        message: (m) => {
-            if (m.message.type === 'move' && m.message.id !== myTank.id) tanks[m.message.id] = {...m.message, lastSeen: Date.now()};
-            if (m.message.type === 'shoot' && m.message.id !== myTank.id) { if(tanks[m.message.id]) tanks[m.message.id].bullets.push(m.message.bullet); }
-            if (m.message.type === 'hit' && m.message.targetId === myTank.id) { myTank.health -= 100; if(myTank.health <= 0) respawn(); }
-        }
-    });
-
-    setInterval(() => { if(gameActive) pubnub.publish({ channel: room, message: { type: 'move', ...myTank, bullets: [] } }); }, 50);
-    gameLoop();
+    if('ontouchstart' in window) { // Mobil kontrolünü göster
+        jZone.style.display = 'block';
+        document.getElementById('fire-btn').style.display = 'block';
+    }
+    ak = true;
+    pn = new PubNub({ publishKey: 'pub-c-8f430635-f09b-4394-874b-22003f905007', subscribeKey: 'sub-c-0720616b-952a-43cf-87eb-07f9208007a1', uuid: b.id });
+    pn.subscribe({ channels: [od] });
+    pn.addListener({ message: (m) => {
+        if(m.tip === 'm' && m.id !== b.id) rk[m.id] = {...m, s: Date.now()};
+        if(m.tip === 'a' && m.id !== b.id) { if(rk[m.id]) rk[m.id].m.push(m.mer); }
+        if(m.tip === 'h' && m.hedef === b.id) { b.x = Math.random()*cv.width; b.y = Math.random()*cv.height; }
+    }});
+    setInterval(() => { if(ak) pn.publish({ channel: od, message: { tip: 'm', ...b, m: [] } }); }, 50);
+    loop();
 }
 
-window.onkeydown = (e) => { keys[e.key.toLowerCase()] = true; if(e.key === "Escape") location.reload(); };
-window.onkeyup = (e) => keys[e.key.toLowerCase()] = false;
+// JOYSTICK MANTIĞI
+jZone.addEventListener('touchstart', (e) => { jActive = true; });
+window.addEventListener('touchmove', (e) => {
+    if (!jActive) return;
+    let touch = e.touches[0];
+    let rect = jZone.getBoundingClientRect();
+    let centerX = rect.left + rect.width / 2;
+    let centerY = rect.top + rect.height / 2;
+    let dx = touch.clientX - centerX;
+    let dy = touch.clientY - centerY;
+    let dist = Math.min(60, Math.hypot(dx, dy));
+    let angle = Math.atan2(dy, dx);
+    jX = Math.cos(angle) * (dist / 60);
+    jY = Math.sin(angle) * (dist / 60);
+    jStick.style.transform = `translate(${jX * 40}px, ${jY * 40}px)`;
+});
+window.addEventListener('touchend', () => { jActive = false; jX = 0; jY = 0; jStick.style.transform = `translate(0,0)`; });
 
-window.onpointerdown = (e) => {
-    if (!gameActive || e.target.id === 'exitBtn') return;
-    const angle = Math.atan2(e.clientY - myTank.y, e.clientX - myTank.x);
-    // TEK ATAN DEV MERMİ
-    const bullet = { x: myTank.x, y: myTank.y, angle: angle, speed: 12, radius: 15 };
-    myTank.bullets.push(bullet);
-    pubnub.publish({ channel: room, message: { type: 'shoot', id: myTank.id, bullet: bullet } });
-};
+// ATEŞ BUTONU
+document.getElementById('fire-btn').addEventListener('touchstart', (e) => {
+    e.preventDefault();
+    fire(b.x + 50, b.y); // Örnek olarak sağa ateş
+});
 
-function respawn() { myTank.health = 100; myTank.x = Math.random()*(canvas.width-40)+20; myTank.y = Math.random()*(canvas.height-40)+20; }
+function fire(tx, ty) {
+    let aci = Math.atan2(ty - b.y, tx - b.x);
+    let mer = { x: b.x, y: b.y, a: aci, s: 10, r: 10 };
+    b.m.push(mer);
+    pn.publish({ channel: od, message: { tip: 'a', id: b.id, mer: mer } });
+}
 
-function draw(t) {
-    // 1. Tankı Çiz
-    ctx.fillStyle = t.color;
-    ctx.fillRect(t.x - 20, t.y - 20, 40, 40);
-    ctx.strokeStyle = "white";
-    ctx.strokeRect(t.x - 20, t.y - 20, 40, 40);
+window.onkeydown = (e) => ts[e.key.toLowerCase()] = true;
+window.onkeyup = (e) => ts[e.key.toLowerCase()] = false;
+
+function ciz(t) {
+    cx.fillStyle = t.r;
+    cx.fillRect(t.x-20, t.y-20, 40, 40);
+    cx.fillStyle = "white";
+    cx.fillText(t.n, t.x-10, t.y-25);
     
-    // 2. İsim Çiz
-    ctx.fillStyle = "white";
-    ctx.font = "bold 14px Arial";
-    ctx.textAlign = "center";
-    ctx.fillText(t.name, t.x, t.y - 30);
-
-    // 3. Mermileri Çiz
-    for(let i = t.bullets.length - 1; i >= 0; i--) {
-        let b = t.bullets[i];
-        b.x += Math.cos(b.angle) * b.speed;
-        b.y += Math.sin(b.angle) * b.speed;
-        
-        ctx.fillStyle = "yellow";
-        ctx.beginPath(); ctx.arc(b.x, b.y, b.radius, 0, Math.PI*2); ctx.fill();
-
-        if (t.id === myTank.id) {
-            Object.values(tanks).forEach(enemy => {
-                if (Math.hypot(enemy.x - b.x, enemy.y - b.y) < 30) {
-                    pubnub.publish({ channel: room, message: { type: 'hit', targetId: enemy.id } });
-                    t.bullets.splice(i, 1);
+    for(let i=t.m.length-1; i>=0; i--) {
+        let m = t.m[i];
+        m.x += Math.cos(m.a)*m.s; m.y += Math.sin(m.a)*m.s;
+        cx.fillStyle = "yellow";
+        cx.beginPath(); cx.arc(m.x, m.y, m.r, 0, Math.PI*2); cx.fill();
+        if(t.id === b.id) {
+            Object.values(rk).forEach(r => {
+                if(Math.hypot(r.x-m.x, r.y-m.y) < 30) {
+                    pn.publish({ channel: od, message: { tip: 'h', hedef: r.id } });
+                    t.m.splice(i, 1);
                 }
             });
         }
-        if(b.x < 0 || b.x > canvas.width || b.y < 0 || b.y > canvas.height) t.bullets.splice(i, 1);
+        if(m.x<0 || m.x>cv.width || m.y<0 || m.y>cv.height) t.m.splice(i, 1);
     }
 }
 
-function gameLoop() {
-    if (!gameActive) return;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
+function loop() {
+    if(!ak) return;
+    cx.clearRect(0,0,cv.width,cv.height);
     
-    if (keys['w']) myTank.y -= 5; if (keys['s']) myTank.y += 5;
-    if (keys['a']) myTank.x -= 5; if (keys['d']) myTank.x += 5;
-
-    draw(myTank);
-    Object.values(tanks).forEach(t => { if (Date.now() - t.lastSeen < 3000) draw(t); });
+    // PC Hareketi
+    if(ts['w']) b.y-=4; if(ts['s']) b.y+=4;
+    if(ts['a']) b.x-=4; if(ts['d']) b.x+=4;
     
-    document.getElementById('stats').innerText = `Can: ${myTank.health} | Oda: ${room}`;
-    requestAnimationFrame(gameLoop);
+    // Mobil Hareketi (Joystick)
+    b.x += jX * 5;
+    b.y += jY * 5;
+    
+    ciz(b);
+    Object.values(rk).forEach(r => { if(Date.now()-r.s < 3000) ciz(r); });
+    requestAnimationFrame(loop);
 }
 </script>
 </body>
