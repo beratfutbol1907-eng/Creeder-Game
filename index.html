@@ -3,139 +3,161 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CREEDER FARM ARENA</title>
+    <title>CREEDER PRO ARENA</title>
     <script src="https://cdn.pubnub.com/sdk/javascript/pubnub.4.29.9.min.js"></script>
     <style>
-        body { margin: 0; background: #4d2600; overflow: hidden; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; touch-action: none; }
-        canvas { display: block; background: #6b8e23; } /* Çimen/Toprak rengi */
-        #menu { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-                background: rgba(0,0,0,0.85); padding: 30px; border-radius: 20px; 
-                color: white; text-align: center; border: 4px solid #ffd700; z-index: 1000; width: 300px; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
-        input { width: 85%; padding: 12px; margin: 10px 0; border-radius: 8px; border: 2px solid #5d4037; font-size: 16px; background: #fff; color: #333; }
-        button { width: 95%; padding: 15px; background: #8bc34a; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 18px; cursor: pointer; transition: 0.3s; }
-        button:hover { background: #689f38; }
-        #j-bg { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(255,255,255,0.2); border-radius: 50%; border: 2px solid white; display: none; z-index: 500; }
-        #j-t { position: absolute; top: 35px; left: 35px; width: 50px; height: 50px; background: #ffd700; border-radius: 50%; }
-        #f-b { position: absolute; bottom: 50px; right: 40px; width: 100px; height: 100px; background: rgba(255,0,0,0.7); border: 4px solid white; border-radius: 50%; display: none; z-index: 500; color: white; text-align: center; line-height: 100px; font-weight: bold; font-size: 22px; user-select: none; }
+        body { margin: 0; background: #4d2600; overflow: hidden; font-family: sans-serif; touch-action: none; }
+        canvas { display: block; background: #556b2f; }
+        #ui { position: absolute; top: 10px; left: 10px; color: white; font-weight: bold; text-shadow: 2px 2px black; pointer-events: none; }
+        #menu { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); padding: 30px; border-radius: 20px; color: white; text-align: center; border: 4px solid #ffd700; z-index: 1000; width: 280px; }
+        input { width: 80%; padding: 10px; margin: 10px 0; border-radius: 5px; }
+        button { width: 90%; padding: 15px; background: #4CAF50; color: white; border: none; font-weight: bold; cursor: pointer; }
+        #j-bg { position: absolute; bottom: 30px; left: 30px; width: 100px; height: 100px; background: rgba(255,255,255,0.2); border-radius: 50%; display: none; }
+        #j-t { position: absolute; top: 25px; left: 25px; width: 50px; height: 50px; background: #ffd700; border-radius: 50%; }
+        #f-b { position: absolute; bottom: 30px; right: 30px; width: 90px; height: 90px; background: rgba(255,0,0,0.6); border-radius: 50%; display: none; color: white; text-align: center; line-height: 90px; font-weight: bold; }
+        #info { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); color: white; font-size: 12px; background: rgba(0,0,0,0.5); padding: 5px; border-radius: 5px; }
     </style>
 </head>
 <body>
+    <div id="ui">Mermi: <span id="m-count">5</span> | Skor: <span id="s-count">0</span> | Can: <span id="h-count">2</span></div>
+    <div id="info">PC: Space ile Ateş, ESC ile Çıkış | Mobil: Butonları Kullan</div>
     <div id="j-bg"><div id="j-t"></div></div>
     <div id="f-b">FIRE</div>
     <div id="menu">
-        <h1 style="color:#ffd700; margin-top:0;">FARM ARENA</h1>
-        <input type="text" id="n" placeholder="İsminiz">
+        <h1 style="color:#ffd700">CREEDER PRO</h1>
+        <input type="text" id="n" placeholder="İsim">
         <input type="text" id="o" placeholder="Oda Kodu">
-        <button onclick="basla()">SAVAŞA KATIL</button>
+        <button onclick="basla()">SAVAŞA BAŞLA</button>
     </div>
     <canvas id="c"></canvas>
 <script>
 const cv = document.getElementById('c'), cx = cv.getContext('2d');
-let pn, od, ak = false, b = { x: 100, y: 100, id: 'p'+Math.random(), r: '#e67e22', n: '', m: [] }, rk = {}, ts = {};
-let jAk = false, jX = 0, jY = 0, samanlar = [];
+let pn, od, ak = false, b = { x: 100, y: 100, id: 'p'+Math.random(), r: '#e67e22', n: '', m: [], hp: 2, sk: 0, ammo: 5, reload: false, speed: 4 };
+let rk = {}, ts = {}, samanlar = [], powerups = [], jAk = false, jX = 0, jY = 0;
 
 function res() { cv.width = window.innerWidth; cv.height = window.innerHeight; }
 window.onresize = res; res();
 
-// Saman Balyaları Oluştur (Sarı Kırılabilecek Engeller)
-for(let i=0; i<15; i++) {
-    samanlar.push({ x: Math.random()*(window.innerWidth-100)+50, y: Math.random()*(window.innerHeight-100)+50, w: 40, h: 40, c: '#f1c40f' });
+function olustur() {
+    samanlar = [];
+    for(let i=0; i<12; i++) samanlar.push({ x: Math.random()*(cv.width-100)+50, y: Math.random()*(cv.height-100)+50, w: 50, h: 50 });
 }
 
 function basla() {
-    b.n = document.getElementById('n').value || "Çiftçi";
-    od = document.getElementById('o').value || "tarla1";
+    b.n = document.getElementById('n').value || "Oyuncu";
+    od = document.getElementById('o').value || "pro_oda";
     document.getElementById('menu').style.display = 'none';
-    if('ontouchstart' in window || navigator.maxTouchPoints > 0) {
-        document.getElementById('j-bg').style.display = 'block';
-        document.getElementById('f-b').style.display = 'block';
-    }
+    olustur();
+    if('ontouchstart' in window) { document.getElementById('j-bg').style.display = 'block'; document.getElementById('f-b').style.display = 'block'; }
     ak = true;
     pn = new PubNub({ publishKey: 'pub-c-8f430635-f09b-4394-874b-22003f905007', subscribeKey: 'sub-c-0720616b-952a-43cf-87eb-07f9208007a1', uuid: b.id });
     pn.subscribe({ channels: [od] });
     pn.addListener({ message: (m) => {
         let d = m.message;
-        if(d.t === 'p' && d.id !== b.id) rk[d.id] = {...d, s: Date.now()};
-        if(d.t === 'a' && d.id !== b.id) { if(rk[d.id]) rk[d.id].m.push(d.mer); }
-        if(d.t === 'h' && d.hedef === b.id) { b.x = 50; b.y = 50; }
-        if(d.t === 'sK') { samanlar.splice(d.idx, 1); } // Saman kırılınca herkeste silinsin
+        if(d.t === 'p' && d.id !== b.id) rk[d.id] = {...d, last: Date.now()};
+        if(d.t === 'a' && d.id !== b.id && rk[d.id]) rk[d.id].m.push(d.mer);
+        if(d.t === 'hit' && d.target === b.id) hasarAl();
+        if(d.t === 'win') { alert("OYUN BİTTİ! KAZANAN: " + d.by); location.reload(); }
     }});
     setInterval(() => { if(ak) pn.publish({ channel: od, message: { t: 'p', ...b, m: [] } }); }, 50);
     loop();
 }
 
-// Kontroller
-document.getElementById('j-bg').addEventListener('touchstart', (e) => { jAk = true; e.preventDefault(); });
-window.addEventListener('touchmove', (e) => {
-    if(!jAk) return; let t = e.touches[0], r = document.getElementById('j-bg').getBoundingClientRect();
-    let dx = t.clientX - (r.left + 60), dy = t.clientY - (r.top + 60);
-    let d = Math.min(60, Math.hypot(dx, dy)), a = Math.atan2(dy, dx);
-    jX = Math.cos(a) * (d/60); jY = Math.sin(a) * (d/60);
-    document.getElementById('j-t').style.transform = `translate(${jX*40}px, ${jY*40}px)`;
-});
-window.addEventListener('touchend', () => { jAk = false; jX = 0; jY = 0; document.getElementById('j-t').style.transform = 'translate(0,0)'; });
-document.getElementById('f-b').addEventListener('touchstart', (e) => { e.preventDefault(); ates(); });
-window.onpointerdown = (e) => { if(ak && !('ontouchstart' in window) && e.target.id === 'c') ates(); };
-window.onkeydown = (e) => ts[e.key.toLowerCase()] = true;
-window.onkeyup = (e) => ts[e.key.toLowerCase()] = false;
-
 function ates() {
-    let m = { x: b.x, y: b.y, a: Math.random()*0.2 + (jX||jY ? Math.atan2(jY, jX) : 0), s: 10, r: 8 };
-    b.m.push(m); pn.publish({ channel: od, message: { t: 'a', id: b.id, mer: m } });
-}
-
-function ciz(t) {
-    // Tank Çizimi
-    cx.fillStyle = t.r; cx.fillRect(t.x-20, t.y-20, 40, 40);
-    cx.fillStyle = "#8b4513"; cx.fillRect(t.x-5, t.y-35, 10, 20); // Tank namlusu
-    cx.fillStyle = "white"; cx.font = "bold 14px Arial"; cx.textAlign = "center";
-    cx.fillText(t.n, t.x, t.y-45);
-
-    // Mermiler
-    for(let i=t.m.length-1; i>=0; i--) {
-        let m = t.m[i]; m.x += Math.cos(m.a)*m.s; m.y += Math.sin(m.a)*m.s;
-        cx.fillStyle = "#ff0"; cx.beginPath(); cx.arc(m.x, m.y, m.r, 0, Math.PI*2); cx.fill();
-        
-        // Saman Çarpışma
-        samanlar.forEach((s, idx) => {
-            if(m.x > s.x && m.x < s.x+s.w && m.y > s.y && m.y < s.y+s.h) {
-                samanlar.splice(idx, 1); t.m.splice(i, 1);
-                pn.publish({ channel: od, message: { t: 'sK', idx: idx } });
-            }
-        });
-
-        // Oyuncu Çarpışma
-        if(t.id === b.id) {
-            Object.values(rk).forEach(r => {
-                if(Math.hypot(r.x-m.x, r.y-m.y) < 30) { pn.publish({ channel: od, message: { t: 'h', hedef: r.id } }); t.m.splice(i, 1); }
-            });
-        }
-        if(m.x<0 || m.x>cv.width || m.y<0 || m.y>cv.height) t.m.splice(i, 1);
+    if(b.ammo > 0 && !b.reload) {
+        let m = { x: b.x, y: b.y, a: Math.atan2(jY, jX) || 0, s: 12, r: 6 };
+        if(ts['w'] || ts['arrowup']) m.a = -Math.PI/2; if(ts['s'] || ts['arrowdown']) m.a = Math.PI/2;
+        if(ts['a'] || ts['arrowleft']) m.a = Math.PI; if(ts['d'] || ts['arrowright']) m.a = 0;
+        b.m.push(m); b.ammo--;
+        pn.publish({ channel: od, message: { t: 'a', id: b.id, mer: m } });
+        if(b.ammo <= 0) { b.reload = true; setTimeout(() => { b.ammo = 5; b.reload = false; }, 2000); }
     }
 }
 
+function hasarAl() {
+    b.hp--; if(b.hp <= 0) { b.x = 100; b.y = 100; b.hp = 2; }
+}
+
+window.onkeydown = (e) => { 
+    ts[e.key.toLowerCase()] = true; 
+    if(e.code === 'Space') ates();
+    if(e.key === 'Escape') location.reload();
+};
+window.onkeyup = (e) => ts[e.key.toLowerCase()] = false;
+
+document.getElementById('f-b').onclick = ates;
+
+function carpisma(nx, ny) {
+    let hit = false;
+    samanlar.forEach(s => {
+        if(nx+20 > s.x && nx-20 < s.x+s.w && ny+20 > s.y && ny-20 < s.y+s.h) hit = true;
+    });
+    return hit || nx<25 || nx>cv.width-25 || ny<25 || ny>cv.height-25;
+}
+
 function loop() {
-    if(!ak) return; 
+    if(!ak) return;
     cx.clearRect(0,0,cv.width,cv.height);
     
-    // Çitleri Çiz (Kenarlar)
-    cx.strokeStyle = "#5d4037"; cx.lineWidth = 15; cx.strokeRect(0,0,cv.width,cv.height);
+    // UI Güncelle
+    document.getElementById('m-count').innerText = b.ammo;
+    document.getElementById('s-count').innerText = b.sk;
+    document.getElementById('h-count').innerText = b.hp;
 
-    // Samanları Çiz
-    samanlar.forEach(s => { cx.fillStyle = s.c; cx.fillRect(s.x, s.y, s.w, s.h); cx.strokeRect(s.x, s.y, s.w, s.h); });
+    // Samanlar
+    cx.fillStyle = "#f1c40f";
+    samanlar.forEach(s => { cx.fillRect(s.x, s.y, s.w, s.h); cx.strokeRect(s.x, s.y, s.w, s.h); });
 
     // Hareket
     let nx = b.x, ny = b.y;
-    if(ts['w']) ny-=5; if(ts['s']) ny+=5; if(ts['a']) nx-=5; if(ts['d']) nx+=5;
-    nx += jX*5; ny += jY*5;
-    
-    // Çit Çarpışma Sınırı
-    if(nx > 30 && nx < cv.width-30) b.x = nx;
-    if(ny > 30 && ny < cv.height-30) b.y = ny;
+    if(ts['w']) ny -= b.speed; if(ts['s']) ny += b.speed;
+    if(ts['a']) nx -= b.speed; if(ts['d']) nx += b.speed;
+    nx += jX*b.speed; ny += jY*b.speed;
+    if(!carpisma(nx, ny)) { b.x = nx; b.y = ny; }
 
-    ciz(b); Object.values(rk).forEach(r => { if(Date.now()-r.s < 3000) ciz(r); });
+    // Çizimler
+    ciz(b);
+    Object.values(rk).forEach(r => { if(Date.now()-r.last < 3000) ciz(r); });
+
+    if(b.sk >= 25) pn.publish({ channel: od, message: { t: 'win', by: b.n } });
+
     requestAnimationFrame(loop);
 }
+
+function ciz(t) {
+    cx.fillStyle = t.r; cx.fillRect(t.x-20, t.y-20, 40, 40);
+    cx.fillStyle = "white"; cx.fillText(t.n, t.x-10, t.y-25);
+    
+    for(let i=t.m.length-1; i>=0; i--) {
+        let m = t.m[i]; m.x += Math.cos(m.a)*m.s; m.y += Math.sin(m.a)*m.s;
+        cx.fillStyle = "yellow"; cx.beginPath(); cx.arc(m.x, m.y, m.r, 0, Math.PI*2); cx.fill();
+        
+        // Mermi Saman Etkileşimi
+        samanlar.forEach((s, idx) => {
+            if(m.x > s.x && m.x < s.x+s.w && m.y > s.y && m.y < s.y+s.h) { t.m.splice(i, 1); }
+        });
+
+        if(t.id === b.id) {
+            Object.values(rk).forEach(r => {
+                if(Math.hypot(r.x-m.x, r.y-m.y) < 25) { 
+                    pn.publish({ channel: od, message: { t: 'hit', target: r.id } }); 
+                    b.sk++; t.m.splice(i, 1);
+                }
+            });
+        }
+    }
+}
+
+// Mobil Joystick
+document.getElementById('j-bg').ontouchstart = (e) => { jAk = true; e.preventDefault(); };
+window.ontouchmove = (e) => {
+    if(!jAk) return; let t = e.touches[0], r = document.getElementById('j-bg').getBoundingClientRect();
+    let dx = t.clientX - (r.left + 50), dy = t.clientY - (r.top + 50);
+    let d = Math.min(50, Math.hypot(dx, dy)), a = Math.atan2(dy, dx);
+    jX = Math.cos(a) * (d/50); jY = Math.sin(a) * (d/50);
+    document.getElementById('j-t').style.transform = `translate(${jX*30}px, ${jY*30}px)`;
+};
+window.ontouchend = () => { jAk = false; jX = 0; jY = 0; document.getElementById('j-t').style.transform = 'translate(0,0)'; };
 </script>
 </body>
 </html>
