@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CREEDER ARENA - FIXED 1.5</title>
+    <title>CREEDER ARENA - FIX</title>
     <script src="https://cdn.pubnub.com/sdk/javascript/pubnub.4.29.9.min.js"></script>
     <style>
         body { margin: 0; overflow: hidden; background: #222; font-family: sans-serif; touch-action: none; }
@@ -51,8 +51,6 @@ function joinGame() {
     room = document.getElementById('roomCode').value || "1907";
     myTank.id = 'p-' + Math.random().toString(36).substr(2, 9);
     myTank.color = `hsl(${Math.random() * 360}, 70%, 50%)`;
-    myTank.x = Math.random() * (canvas.width - 50) + 25;
-    myTank.y = Math.random() * (canvas.height - 50) + 25;
     
     document.getElementById('menu').style.display = 'none';
     document.getElementById('exitBtn').style.display = 'block';
@@ -91,20 +89,20 @@ window.onpointerdown = (e) => {
 
 function respawn() { myTank.health = 100; myTank.x = Math.random()*(canvas.width-40)+20; myTank.y = Math.random()*(canvas.height-40)+20; }
 
-function drawEverything(t) {
-    // Tank Çiz
+function draw(t) {
+    // 1. Tankı Çiz
     ctx.fillStyle = t.color;
     ctx.fillRect(t.x - 20, t.y - 20, 40, 40);
     ctx.strokeStyle = "white";
     ctx.strokeRect(t.x - 20, t.y - 20, 40, 40);
     
-    // İsim Çiz
+    // 2. İsim Çiz
     ctx.fillStyle = "white";
     ctx.font = "bold 14px Arial";
     ctx.textAlign = "center";
     ctx.fillText(t.name, t.x, t.y - 30);
 
-    // Mermileri Bağımsız Çiz
+    // 3. Mermileri Çiz
     for(let i = t.bullets.length - 1; i >= 0; i--) {
         let b = t.bullets[i];
         b.x += Math.cos(b.angle) * b.speed;
@@ -132,8 +130,8 @@ function gameLoop() {
     if (keys['w']) myTank.y -= 5; if (keys['s']) myTank.y += 5;
     if (keys['a']) myTank.x -= 5; if (keys['d']) myTank.x += 5;
 
-    drawEverything(myTank);
-    Object.values(tanks).forEach(t => { if (Date.now() - t.lastSeen < 3000) drawEverything(t); });
+    draw(myTank);
+    Object.values(tanks).forEach(t => { if (Date.now() - t.lastSeen < 3000) draw(t); });
     
     document.getElementById('stats').innerText = `Can: ${myTank.health} | Oda: ${room}`;
     requestAnimationFrame(gameLoop);
