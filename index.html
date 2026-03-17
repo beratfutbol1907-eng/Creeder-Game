@@ -3,51 +3,57 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CREEDER PRO ARENA</title>
+    <title>CREEDER LEADERBOARD</title>
     <script src="https://cdn.pubnub.com/sdk/javascript/pubnub.4.29.9.min.js"></script>
     <style>
-        body { margin: 0; background: #4d2600; overflow: hidden; font-family: sans-serif; touch-action: none; }
-        canvas { display: block; background: #556b2f; }
-        #ui { position: absolute; top: 10px; left: 10px; color: white; font-weight: bold; text-shadow: 2px 2px black; pointer-events: none; }
+        body { margin: 0; background: #2e1a00; overflow: hidden; font-family: 'Segoe UI', sans-serif; touch-action: none; }
+        canvas { display: block; background: #455a2a; }
+        #ui { position: absolute; top: 10px; left: 10px; color: white; font-weight: bold; text-shadow: 2px 2px black; z-index: 10; pointer-events: none; }
+        #scoreboard { position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); color: gold; padding: 15px; border-radius: 10px; border: 2px solid #ffd700; min-width: 150px; z-index: 10; font-size: 14px; }
+        #scoreboard h3 { margin: 0 0 10px 0; text-align: center; border-bottom: 1px solid #ffd700; padding-bottom: 5px; }
         #menu { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.9); padding: 30px; border-radius: 20px; color: white; text-align: center; border: 4px solid #ffd700; z-index: 1000; width: 280px; }
         input { width: 80%; padding: 10px; margin: 10px 0; border-radius: 5px; }
-        button { width: 90%; padding: 15px; background: #4CAF50; color: white; border: none; font-weight: bold; cursor: pointer; }
-        #j-bg { position: absolute; bottom: 30px; left: 30px; width: 100px; height: 100px; background: rgba(255,255,255,0.2); border-radius: 50%; display: none; }
-        #j-t { position: absolute; top: 25px; left: 25px; width: 50px; height: 50px; background: #ffd700; border-radius: 50%; }
-        #f-b { position: absolute; bottom: 30px; right: 30px; width: 90px; height: 90px; background: rgba(255,0,0,0.6); border-radius: 50%; display: none; color: white; text-align: center; line-height: 90px; font-weight: bold; }
-        #info { position: absolute; bottom: 10px; left: 50%; transform: translateX(-50%); color: white; font-size: 12px; background: rgba(0,0,0,0.5); padding: 5px; border-radius: 5px; }
+        button { width: 95%; padding: 15px; background: #4CAF50; color: white; border: none; font-weight: bold; cursor: pointer; border-radius: 5px; }
+        #f-b { position: absolute; bottom: 40px; right: 40px; width: 100px; height: 100px; background: rgba(255,0,0,0.7); border: 5px solid white; border-radius: 50%; display: none; color: white; text-align: center; line-height: 100px; font-weight: bold; z-index: 500; font-size: 20px; }
+        #j-bg { position: absolute; bottom: 40px; left: 40px; width: 120px; height: 120px; background: rgba(255,255,255,0.2); border-radius: 50%; display: none; z-index: 500; }
+        #j-t { position: absolute; top: 35px; left: 35px; width: 50px; height: 50px; background: #ffd700; border-radius: 50%; }
     </style>
 </head>
 <body>
-    <div id="ui">Mermi: <span id="m-count">5</span> | Skor: <span id="s-count">0</span> | Can: <span id="h-count">2</span></div>
-    <div id="info">PC: Space ile Ateş, ESC ile Çıkış | Mobil: Butonları Kullan</div>
-    <div id="j-bg"><div id="j-t"></div></div>
+    <div id="ui">Can: <span id="h-count">2</span> | Mod: <span id="p-status">Normal</span></div>
+    <div id="scoreboard"><h3>TOP 5 TANKÇI</h3><div id="sb-list"></div></div>
     <div id="f-b">FIRE</div>
+    <div id="j-bg"><div id="j-t"></div></div>
     <div id="menu">
-        <h1 style="color:#ffd700">CREEDER PRO</h1>
+        <h1 style="color:#ffd700">CREEDER ARENA</h1>
         <input type="text" id="n" placeholder="İsim">
         <input type="text" id="o" placeholder="Oda Kodu">
-        <button onclick="basla()">SAVAŞA BAŞLA</button>
+        <button onclick="basla()">SAVAŞA GİR</button>
     </div>
     <canvas id="c"></canvas>
 <script>
 const cv = document.getElementById('c'), cx = cv.getContext('2d');
-let pn, od, ak = false, b = { x: 100, y: 100, id: 'p'+Math.random(), r: '#e67e22', n: '', m: [], hp: 2, sk: 0, ammo: 5, reload: false, speed: 4 };
-let rk = {}, ts = {}, samanlar = [], powerups = [], jAk = false, jX = 0, jY = 0;
+let pn, od, ak = false, b = { x: 400, y: 400, angle: 0, id: 'p'+Math.random(), r: '#e67e22', n: '', m: [], hp: 2, sk: 0, ammo: 5, reload: false, speed: 4, power: 'Normal' };
+let rk = {}, ts = {}, samanlar = [], citler = [], powerups = [], mapW = 1500, mapH = 1500, jAk = false, jX = 0, jY = 0;
 
 function res() { cv.width = window.innerWidth; cv.height = window.innerHeight; }
 window.onresize = res; res();
 
-function olustur() {
-    samanlar = [];
-    for(let i=0; i<12; i++) samanlar.push({ x: Math.random()*(cv.width-100)+50, y: Math.random()*(cv.height-100)+50, w: 50, h: 50 });
+function haritaYap() {
+    citler = [
+        {x: 100, y: 100, w: 150, h: 20}, {x: 100, y: 100, w: 20, h: 150},
+        {x: mapW-250, y: 100, w: 150, h: 20}, {x: mapW-120, y: 100, w: 20, h: 150},
+        {x: 100, y: mapH-120, w: 150, h: 20}, {x: 100, y: mapH-250, w: 20, h: 150},
+        {x: mapW-250, y: mapH-120, w: 150, h: 20}, {x: mapW-120, y: mapH-250, w: 20, h: 150}
+    ];
+    for(let i=0; i<15; i++) samanlar.push({ x: Math.random()*(mapW-400)+200, y: Math.random()*(mapH-400)+200, w: 60, h: 60, life: 3 });
 }
 
 function basla() {
-    b.n = document.getElementById('n').value || "Oyuncu";
-    od = document.getElementById('o').value || "pro_oda";
+    b.n = document.getElementById('n').value || "Komutan";
+    od = document.getElementById('o').value || "meydan_savas";
     document.getElementById('menu').style.display = 'none';
-    olustur();
+    haritaYap();
     if('ontouchstart' in window) { document.getElementById('j-bg').style.display = 'block'; document.getElementById('f-b').style.display = 'block'; }
     ak = true;
     pn = new PubNub({ publishKey: 'pub-c-8f430635-f09b-4394-874b-22003f905007', subscribeKey: 'sub-c-0720616b-952a-43cf-87eb-07f9208007a1', uuid: b.id });
@@ -56,107 +62,103 @@ function basla() {
         let d = m.message;
         if(d.t === 'p' && d.id !== b.id) rk[d.id] = {...d, last: Date.now()};
         if(d.t === 'a' && d.id !== b.id && rk[d.id]) rk[d.id].m.push(d.mer);
-        if(d.t === 'hit' && d.target === b.id) hasarAl();
-        if(d.t === 'win') { alert("OYUN BİTTİ! KAZANAN: " + d.by); location.reload(); }
+        if(d.t === 'hit' && d.target === b.id) { if(b.power!=='Kalkan') b.hp--; if(b.hp<=0) { b.x=400; b.y=400; b.hp=2; b.power='Normal'; } }
+        if(d.t === 'sK') { if(samanlar[d.i]) { samanlar[d.i].life--; if(samanlar[d.i].life<=0) samanlar.splice(d.i, 1); } }
+        if(d.t === 'win') { alert("ZAFER: " + d.by); location.reload(); }
     }});
     setInterval(() => { if(ak) pn.publish({ channel: od, message: { t: 'p', ...b, m: [] } }); }, 50);
+    setInterval(spawnPowerup, 10000);
     loop();
 }
 
+function spawnPowerup() {
+    let types = ['Hız', 'Kalkan', 'Sınırsız'];
+    powerups.push({ x: Math.random()*(mapW-200)+100, y: Math.random()*(mapH-200)+100, t: types[Math.floor(Math.random()*3)] });
+}
+
 function ates() {
-    if(b.ammo > 0 && !b.reload) {
-        let m = { x: b.x, y: b.y, a: Math.atan2(jY, jX) || 0, s: 12, r: 6 };
-        if(ts['w'] || ts['arrowup']) m.a = -Math.PI/2; if(ts['s'] || ts['arrowdown']) m.a = Math.PI/2;
-        if(ts['a'] || ts['arrowleft']) m.a = Math.PI; if(ts['d'] || ts['arrowright']) m.a = 0;
-        b.m.push(m); b.ammo--;
+    if((b.ammo > 0 || b.power === 'Sınırsız') && !b.reload) {
+        let m = { x: b.x, y: b.y, a: b.angle, s: 12, r: 6, d: 0, maxD: 400 };
+        b.m.push(m); if(b.power !== 'Sınırsız') b.ammo--;
         pn.publish({ channel: od, message: { t: 'a', id: b.id, mer: m } });
-        if(b.ammo <= 0) { b.reload = true; setTimeout(() => { b.ammo = 5; b.reload = false; }, 2000); }
+        if(b.ammo <= 0 && b.power !== 'Sınırsız') { b.reload = true; setTimeout(() => { b.ammo = 5; b.reload = false; }, 2000); }
     }
 }
 
-function hasarAl() {
-    b.hp--; if(b.hp <= 0) { b.x = 100; b.y = 100; b.hp = 2; }
-}
-
-window.onkeydown = (e) => { 
-    ts[e.key.toLowerCase()] = true; 
-    if(e.code === 'Space') ates();
-    if(e.key === 'Escape') location.reload();
-};
-window.onkeyup = (e) => ts[e.key.toLowerCase()] = false;
-
-document.getElementById('f-b').onclick = ates;
-
-function carpisma(nx, ny) {
+function checkCollision(nx, ny) {
     let hit = false;
-    samanlar.forEach(s => {
-        if(nx+20 > s.x && nx-20 < s.x+s.w && ny+20 > s.y && ny-20 < s.y+s.h) hit = true;
-    });
-    return hit || nx<25 || nx>cv.width-25 || ny<25 || ny>cv.height-25;
+    [...citler, ...samanlar].forEach(e => { if(nx+18 > e.x && nx-18 < e.x+e.w && ny+18 > e.y && ny-18 < e.y+e.h) hit = true; });
+    return hit || nx<30 || nx>mapW-30 || ny<30 || ny>mapH-30;
 }
+
+function updateScoreboard() {
+    let players = [{n: b.n, s: b.sk}, ...Object.values(rk).map(r => ({n: r.n, s: r.sk}))];
+    players.sort((a,b) => b.s - a.s);
+    document.getElementById('sb-list').innerHTML = players.slice(0,5).map(p => `<div>${p.n}: ${p.s}</div>`).join('');
+}
+
+window.onkeydown = (e) => { ts[e.key.toLowerCase()] = true; if(e.code === 'Space') ates(); if(e.key === 'Escape') location.reload(); };
+window.onkeyup = (e) => ts[e.key.toLowerCase()] = false;
+document.getElementById('f-b').ontouchstart = (e) => { e.preventDefault(); ates(); };
 
 function loop() {
     if(!ak) return;
     cx.clearRect(0,0,cv.width,cv.height);
-    
-    // UI Güncelle
-    document.getElementById('m-count').innerText = b.ammo;
-    document.getElementById('s-count').innerText = b.sk;
     document.getElementById('h-count').innerText = b.hp;
+    document.getElementById('p-status').innerText = b.power;
+    updateScoreboard();
 
-    // Samanlar
-    cx.fillStyle = "#f1c40f";
-    samanlar.forEach(s => { cx.fillRect(s.x, s.y, s.w, s.h); cx.strokeRect(s.x, s.y, s.w, s.h); });
+    cx.save();
+    cx.translate(cv.width/2 - b.x, cv.height/2 - b.y);
 
-    // Hareket
-    let nx = b.x, ny = b.y;
-    if(ts['w']) ny -= b.speed; if(ts['s']) ny += b.speed;
-    if(ts['a']) nx -= b.speed; if(ts['d']) nx += b.speed;
-    nx += jX*b.speed; ny += jY*b.speed;
-    if(!carpisma(nx, ny)) { b.x = nx; b.y = ny; }
+    cx.strokeStyle = "#ffd700"; cx.lineWidth = 10; cx.strokeRect(0,0,mapW,mapH);
+    cx.fillStyle = "#8b4513"; citler.forEach(c => cx.fillRect(c.x, c.y, c.w, c.h));
+    cx.fillStyle = "#f1c40f"; samanlar.forEach(s => { 
+        cx.globalAlpha = s.life/3; cx.fillRect(s.x, s.y, s.w, s.h); cx.globalAlpha = 1; cx.strokeRect(s.x, s.y, s.w, s.h);
+    });
 
-    // Çizimler
+    powerups.forEach((p, i) => {
+        cx.fillStyle = p.t === 'Hız' ? '#2ecc71' : p.t === 'Kalkan' ? '#3498db' : '#f1c40f';
+        cx.beginPath(); cx.arc(p.x, p.y, 15, 0, Math.PI*2); cx.fill();
+        if(Math.hypot(b.x-p.x, b.y-p.y) < 30) {
+            b.power = p.t; if(p.t==='Hız') b.speed=7; else b.speed=4;
+            powerups.splice(i, 1); setTimeout(() => { b.power = 'Normal'; b.speed=4; }, 8000);
+        }
+    });
+
+    let moveSpeed = b.speed;
+    if(ts['w']) { let nx = b.x+Math.cos(b.angle)*moveSpeed, ny = b.y+Math.sin(b.angle)*moveSpeed; if(!checkCollision(nx,ny)) { b.x=nx; b.y=ny; } }
+    if(ts['s']) { let nx = b.x-Math.cos(b.angle)*(moveSpeed/2), ny = b.y-Math.sin(b.angle)*(moveSpeed/2); if(!checkCollision(nx,ny)) { b.x=nx; b.y=ny; } }
+    if(ts['a']) b.angle -= 0.05; if(ts['d']) b.angle += 0.05;
+
+    if(jAk) { b.angle = Math.atan2(jY, jX); let nx = b.x+Math.cos(b.angle)*moveSpeed, ny = b.y+Math.sin(b.angle)*moveSpeed; if(!checkCollision(nx,ny)) { b.x=nx; b.y=ny; } }
+
     ciz(b);
     Object.values(rk).forEach(r => { if(Date.now()-r.last < 3000) ciz(r); });
+    cx.restore();
 
     if(b.sk >= 25) pn.publish({ channel: od, message: { t: 'win', by: b.n } });
-
     requestAnimationFrame(loop);
 }
 
 function ciz(t) {
-    cx.fillStyle = t.r; cx.fillRect(t.x-20, t.y-20, 40, 40);
-    cx.fillStyle = "white"; cx.fillText(t.n, t.x-10, t.y-25);
+    cx.save(); cx.translate(t.x, t.y); cx.rotate(t.angle);
+    if(t.power === 'Kalkan') { cx.strokeStyle = '#3498db'; cx.lineWidth = 3; cx.beginPath(); cx.arc(0,0,30,0,Math.PI*2); cx.stroke(); }
+    cx.fillStyle = t.r; cx.fillRect(-20, -20, 40, 40);
+    cx.fillStyle = "#333"; cx.fillRect(5, -5, 25, 10); cx.restore();
+    cx.fillStyle = "white"; cx.textAlign = "center"; cx.fillText(t.n, t.x, t.y-35);
     
     for(let i=t.m.length-1; i>=0; i--) {
-        let m = t.m[i]; m.x += Math.cos(m.a)*m.s; m.y += Math.sin(m.a)*m.s;
-        cx.fillStyle = "yellow"; cx.beginPath(); cx.arc(m.x, m.y, m.r, 0, Math.PI*2); cx.fill();
-        
-        // Mermi Saman Etkileşimi
-        samanlar.forEach((s, idx) => {
-            if(m.x > s.x && m.x < s.x+s.w && m.y > s.y && m.y < s.y+s.h) { t.m.splice(i, 1); }
-        });
-
-        if(t.id === b.id) {
-            Object.values(rk).forEach(r => {
-                if(Math.hypot(r.x-m.x, r.y-m.y) < 25) { 
-                    pn.publish({ channel: od, message: { t: 'hit', target: r.id } }); 
-                    b.sk++; t.m.splice(i, 1);
-                }
-            });
-        }
+        let m = t.m[i]; m.x += Math.cos(m.a)*m.s; m.y += Math.sin(m.a)*m.s; m.d += m.s;
+        cx.fillStyle = "white"; cx.beginPath(); cx.arc(m.x, m.y, m.r, 0, Math.PI*2); cx.fill();
+        samanlar.forEach((s, si) => { if(m.x > s.x && m.x < s.x+s.w && m.y > s.y && m.y < s.y+s.h) { t.m.splice(i, 1); pn.publish({ channel: od, message: { t: 'sK', i: si } }); } });
+        if(t.id === b.id) { Object.values(rk).forEach(r => { if(Math.hypot(r.x-m.x, r.y-m.y) < 25) { pn.publish({ channel: od, message: { t: 'hit', target: r.id } }); b.sk++; t.m.splice(i, 1); } }); }
+        if(m.d > m.maxD || m.x<0 || m.x>mapW || m.y<0 || m.y>mapH) t.m.splice(i, 1);
     }
 }
 
-// Mobil Joystick
 document.getElementById('j-bg').ontouchstart = (e) => { jAk = true; e.preventDefault(); };
-window.ontouchmove = (e) => {
-    if(!jAk) return; let t = e.touches[0], r = document.getElementById('j-bg').getBoundingClientRect();
-    let dx = t.clientX - (r.left + 50), dy = t.clientY - (r.top + 50);
-    let d = Math.min(50, Math.hypot(dx, dy)), a = Math.atan2(dy, dx);
-    jX = Math.cos(a) * (d/50); jY = Math.sin(a) * (d/50);
-    document.getElementById('j-t').style.transform = `translate(${jX*30}px, ${jY*30}px)`;
-};
+window.ontouchmove = (e) => { if(!jAk) return; let t = e.touches[0], r = document.getElementById('j-bg').getBoundingClientRect(); jX = (t.clientX - (r.left + 60))/60; jY = (t.clientY - (r.top + 60))/60; document.getElementById('j-t').style.transform = `translate(${jX*40}px, ${jY*40}px)`; };
 window.ontouchend = () => { jAk = false; jX = 0; jY = 0; document.getElementById('j-t').style.transform = 'translate(0,0)'; };
 </script>
 </body>
