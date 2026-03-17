@@ -3,26 +3,22 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CREEDER ARENA - MOBİL DESTEK</title>
+    <title>CREEDER ARENA - FIX 1.3</title>
     <script src="https://cdn.pubnub.com/sdk/javascript/pubnub.4.29.9.min.js"></script>
     <style>
         body { margin: 0; overflow: hidden; background: #222; font-family: sans-serif; touch-action: none; }
         canvas { display: block; background: #333; }
-        #ui { position: absolute; top: 10px; left: 10px; color: white; pointer-events: none; z-index: 10; }
-        
-        /* MOBİL İÇİN KIRMIZI MENÜ BUTONU */
+        #ui { position: absolute; top: 10px; left: 10px; color: white; pointer-events: none; z-index: 10; font-size: 14px; }
         #mobileMenuBtn { 
             position: absolute; top: 15px; right: 15px; 
             padding: 12px 20px; background: #f44336; 
             color: white; border-radius: 8px; z-index: 100; 
             display: none; cursor: pointer; font-weight: bold;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.5); border: 1px solid white;
         }
-
         #menu { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
                 background: rgba(0,0,0,0.95); padding: 25px; border-radius: 15px; 
                 color: white; text-align: center; border: 3px solid #4CAF50; z-index: 200; width: 85%; max-width: 350px; }
-        
         input { padding: 12px; margin: 10px 0; border-radius: 8px; border: none; width: 90%; font-size: 16px; }
         button { padding: 15px 30px; background: #4CAF50; color: white; border: none; border-radius: 8px; cursor: pointer; font-size: 20px; font-weight: bold; width: 100%; }
         h1 { color: #4CAF50; font-size: 28px; margin-bottom: 15px; text-shadow: 2px 2px #000; }
@@ -44,7 +40,7 @@
     <button onclick="joinGame()">SAVAŞI BAŞLAT!</button>
     <div class="controls">
         PC: WASD + Mouse<br>
-        MOBİL: Dokun ve Sürükle (Ateş eder)
+        MOBİL: Ekrana Dokun (Ateş)
     </div>
 </div>
 
@@ -69,7 +65,6 @@ resize();
 function joinGame() {
     const name = document.getElementById('username').value || "Adsız";
     room = document.getElementById('roomCode').value || "1907";
-    
     myTank.id = 'p-' + Math.random().toString(36).substr(2, 9);
     myTank.name = name;
     myTank.color = `hsl(${Math.random() * 360}, 70%, 50%)`;
@@ -104,29 +99,17 @@ function joinGame() {
         }
     });
 
-    setInterval(sendPos, 50);
+    setInterval(() => { if(gameActive) pubnub.publish({ channel: room, message: { type: 'move', ...myTank, bullets: [] } }); }, 50);
     requestAnimationFrame(gameLoop);
 }
 
-function sendPos() {
-    if (!gameActive) return;
-    pubnub.publish({
-        channel: room,
-        message: { type: 'move', ...myTank, bullets: [] }
-    });
-}
-
 const keys = {};
-window.onkeydown = (e) => {
-    keys[e.key.toLowerCase()] = true;
-    if (e.key === "Escape") location.reload();
-};
+window.onkeydown = (e) => { keys[e.key.toLowerCase()] = true; if (e.key === "Escape") location.reload(); };
 window.onkeyup = (e) => keys[e.key.toLowerCase()] = false;
 
 window.onpointerdown = (e) => {
     if (!gameActive || e.target.id === 'mobileMenuBtn') return;
     const angle = Math.atan2(e.clientY - myTank.y, e.clientX - myTank.x);
-    // TEK ATAN DEV MERMİ (Radius 15)
     const bullet = { x: myTank.x, y: myTank.y, angle: angle, speed: 12, radius: 15 };
     myTank.bullets.push(bullet);
     pubnub.publish({ channel: room, message: { type: 'shoot', id: myTank.id, bullet: bullet } });
@@ -144,53 +127,39 @@ function drawTank(t) {
     ctx.fillStyle = t.color;
     ctx.fillRect(-20, -20, 40, 40);
     ctx.strokeStyle = "white";
-    ctx.lineWidth = 2;
     ctx.strokeRect(-20, -20, 40, 40);
-    
     ctx.fillStyle = "white";
     ctx.font = "bold 14px Arial";
     ctx.textAlign = "center";
     ctx.fillText(t.name, 0, -30);
+    ctx.restore();
 
     t.bullets.forEach((b, index) => {
         b.x += Math.cos(b.angle) * b.speed;
         b.y += Math.sin(b.angle) * b.speed;
-        
-        ctx.restore(); ctx.save();
         ctx.fillStyle = "yellow";
-        ctx.shadowBlur = 10;
-        ctx.shadowColor = "orange";
         ctx.beginPath();
         ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
         ctx.fill();
 
         if (t.id === myTank.id) {
             Object.values(tanks).forEach(enemy => {
-                let dist = Math.hypot(enemy.x - b.x, enemy.y - b.y);
-                if (dist < 35) {
+                if (Math.hypot(enemy.x - b.x, enemy.y - b.y) < 35) {
                     pubnub.publish({ channel: room, message: { type: 'hit', targetId: enemy.id } });
                     t.bullets.splice(index, 1);
                 }
             });
         }
     });
-    ctx.restore();
 }
 
 function gameLoop() {
     if (!gameActive) return;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    if (keys['w']) myTank.y -= 5;
-    if (keys['s']) myTank.y += 5;
-    if (keys['a']) myTank.x -= 5;
-    if (keys['d']) myTank.x += 5;
-
+    if (keys['w']) myTank.y -= 5; if (keys['s']) myTank.y += 5;
+    if (keys['a']) myTank.x -= 5; if (keys['d']) myTank.x += 5;
     drawTank(myTank);
-    Object.values(tanks).forEach(t => {
-        if (Date.now() - t.lastSeen < 3000) drawTank(t);
-    });
-
+    Object.values(tanks).forEach(t => { if (Date.now() - t.lastSeen < 3000) drawTank(t); });
     document.getElementById('stats').innerText = `Can: ${myTank.health} | Oda: ${room} | Pilot: ${myTank.name}`;
     requestAnimationFrame(gameLoop);
 }
