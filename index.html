@@ -3,15 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>CREEDER ARENA V2</title>
+    <title>CREEDER ARENA</title>
     <script src="https://cdn.pubnub.com/sdk/javascript/pubnub.4.29.9.min.js"></script>
     <style>
         body { margin: 0; background: #111; overflow: hidden; font-family: sans-serif; touch-action: none; }
-        canvas { display: block; background: #222; border: 2px solid #444; }
+        canvas { display: block; background: #222; }
         #menu { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); 
-                background: rgba(0,0,0,0.9); padding: 30px; border: 3px solid #4CAF50; 
-                border-radius: 15px; color: white; text-align: center; z-index: 1000; width: 280px; }
-        input { width: 85%; padding: 12px; margin: 10px 0; border-radius: 8px; border: none; font-size: 16px; }
+                background: rgba(0,0,0,0.95); padding: 30px; border-radius: 15px; 
+                color: white; text-align: center; border: 3px solid #4CAF50; z-index: 1000; width: 280px; }
+        input { width: 85%; padding: 12px; margin: 10px 0; border-radius: 8px; border: none; font-size: 16px; background: #333; color: white; }
         button { width: 95%; padding: 15px; background: #4CAF50; color: white; border: none; border-radius: 8px; font-weight: bold; font-size: 18px; cursor: pointer; }
         #j-bg { position: absolute; bottom: 50px; left: 50px; width: 110px; height: 110px; background: rgba(255,255,255,0.1); border-radius: 50%; border: 2px solid white; display: none; z-index: 500; }
         #j-t { position: absolute; top: 30px; left: 30px; width: 50px; height: 50px; background: #4CAF50; border-radius: 50%; }
@@ -35,8 +35,8 @@ let jAk = false, jX = 0, jY = 0;
 function res() { cv.width = window.innerWidth; cv.height = window.innerHeight; }
 window.onresize = res; res();
 function basla() {
-    b.n = document.getElementById('n').value || "P";
-    od = document.getElementById('o').value || "1907";
+    b.n = document.getElementById('n').value || "Oyuncu";
+    od = document.getElementById('o').value || "ana_oda";
     document.getElementById('menu').style.display = 'none';
     if('ontouchstart' in window || navigator.maxTouchPoints > 0) {
         document.getElementById('j-bg').style.display = 'block';
